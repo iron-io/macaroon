@@ -72,8 +72,8 @@ func (m *Macaroon) parsePacket(start int) (packet, error) {
 	}
 	data = data[2:plen]
 	return packet{
-		start:     int32(start),
-		totalLen:  uint16(plen),
+		start:    int32(start),
+		totalLen: uint16(plen),
 	}, nil
 }
 
@@ -99,8 +99,8 @@ func rawAppendPacket(buf []byte, f field, data []byte) ([]byte, packet, bool) {
 		return nil, packet{}, false
 	}
 	s := packet{
-		start:     int32(len(buf)),
-		totalLen:  uint16(plen),
+		start:    int32(len(buf)),
+		totalLen: uint16(plen),
 	}
 	buf = appendSize(buf, plen)
 	buf = append(buf, byte(f))

@@ -21,7 +21,7 @@ const (
 )
 
 var fieldStrings = [...]string{
-	fieldInvalid:       "invalid",
+	fieldInvalid:        "invalid",
 	fieldLocation:       "location",
 	fieldIdentifier:     "identifier",
 	fieldSignature:      "signature",
