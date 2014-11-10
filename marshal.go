@@ -7,24 +7,35 @@ import (
 	"fmt"
 )
 
+type field byte
+
 // field names, as defined in libmacaroons
 const (
-	fieldLocation       = "location"
-	fieldIdentifier     = "identifier"
-	fieldSignature      = "signature"
-	fieldCaveatId       = "cid"
-	fieldVerificationId = "vid"
-	fieldCaveatLocation = "cl"
+	fieldInvalid field = iota
+	fieldLocation
+	fieldIdentifier
+	fieldSignature
+	fieldCaveatId
+	fieldVerificationId
+	fieldCaveatLocation
 )
 
-var (
-	fieldLocationBytes       = []byte("location")
-	fieldIdentifierBytes     = []byte("identifier")
-	fieldSignatureBytes      = []byte("signature")
-	fieldCaveatIdBytes       = []byte("cid")
-	fieldVerificationIdBytes = []byte("vid")
-	fieldCaveatLocationBytes = []byte("cl")
-)
+var fieldStrings = [...]string{
+	fieldInvalid:       "invalid",
+	fieldLocation:       "location",
+	fieldIdentifier:     "identifier",
+	fieldSignature:      "signature",
+	fieldCaveatId:       "cid",
+	fieldVerificationId: "vid",
+	fieldCaveatLocation: "cl",
+}
+
+func (f field) String() string {
+	if int(f) >= len(fieldStrings) {
+		f = fieldInvalid
+	}
+	return fieldStrings[f]
+}
 
 // macaroonJSON defines the JSON format for macaroons.
 type macaroonJSON struct {
@@ -135,7 +146,7 @@ func (m *Macaroon) UnmarshalBinary(data []byte) error {
 			return err
 		}
 		start += p.len()
-		switch field := string(m.fieldName(p)); field {
+		switch f := m.fieldNum(p); f {
 		case fieldSignature:
 			// At the end of the caveats we find the signature.
 			if cav.caveatId.len() != 0 {
@@ -152,28 +163,28 @@ func (m *Macaroon) UnmarshalBinary(data []byte) error {
 			cav.caveatId = p
 		case fieldVerificationId:
 			if cav.verificationId.len() != 0 {
-				return fmt.Errorf("repeated field %q in caveat", fieldVerificationId)
+				return fmt.Errorf("repeated field %v in caveat", fieldVerificationId)
 			}
 			cav.verificationId = p
 		case fieldCaveatLocation:
 			if cav.location.len() != 0 {
-				return fmt.Errorf("repeated field %q in caveat", fieldLocation)
+				return fmt.Errorf("repeated field %v in caveat", fieldLocation)
 			}
 			cav.location = p
 		default:
-			return fmt.Errorf("unexpected field %q", field)
+			return fmt.Errorf("unexpected field %x", f)
 		}
 	}
 	return nil
 }
 
-func (m *Macaroon) expectPacket(start int, kind string) (int, packet, error) {
+func (m *Macaroon) expectPacket(start int, kind field) (int, packet, error) {
 	p, err := m.parsePacket(start)
 	if err != nil {
 		return 0, packet{}, err
 	}
-	if field := string(m.fieldName(p)); field != kind {
-		return 0, packet{}, fmt.Errorf("unexpected field %q; expected %s", field, kind)
+	if f := m.fieldNum(p); f != kind {
+		return 0, packet{}, fmt.Errorf("unexpected field %v; expected %s", f, kind)
 	}
 	return start + p.len(), p, nil
 }

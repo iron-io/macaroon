@@ -47,11 +47,11 @@ func (m *Macaroon) packetBytes(p packet) []byte {
 }
 
 // fieldName returns the field name of the packet.
-func (m *Macaroon) fieldName(p packet) []byte {
+func (m *Macaroon) fieldNum(p packet) field {
 	if p.totalLen == 0 {
-		return nil
+		return fieldInvalid
 	}
-	return m.data[p.start+4 : p.start+int32(p.headerLen)-1]
+	return field(m.data[p.start+4])
 }
 
 // parsePacket parses the packet starting at the given
@@ -86,8 +86,8 @@ const maxPacketLen = 0xffff
 // and data to m.data, and returns the packet appended.
 //
 // It returns false (and a zero packet) if the packet was too big.
-func (m *Macaroon) appendPacket(field string, data []byte) (packet, bool) {
-	mdata, p, ok := rawAppendPacket(m.data, field, data)
+func (m *Macaroon) appendPacket(f field, data []byte) (packet, bool) {
+	mdata, p, ok := rawAppendPacket(m.data, f, data)
 	if !ok {
 		return p, false
 	}
@@ -96,18 +96,18 @@ func (m *Macaroon) appendPacket(field string, data []byte) (packet, bool) {
 }
 
 // rawAppendPacket appends a packet to the given byte slice.
-func rawAppendPacket(buf []byte, field string, data []byte) ([]byte, packet, bool) {
-	plen := 4 + len(field) + 1 + len(data)
+func rawAppendPacket(buf []byte, f field, data []byte) ([]byte, packet, bool) {
+	plen := 4 + 1 + 1 + len(data)
 	if plen > maxPacketLen {
 		return nil, packet{}, false
 	}
 	s := packet{
 		start:     int32(len(buf)),
 		totalLen:  uint16(plen),
-		headerLen: uint16(4 + len(field) + 1),
+		headerLen: uint16(4 + 1 + 1),
 	}
 	buf = appendSize(buf, plen)
-	buf = append(buf, field...)
+	buf = append(buf, byte(f))
 	buf = append(buf, ' ')
 	buf = append(buf, data...)
 	return buf, s, true
