@@ -2,6 +2,7 @@ package macaroon
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 )
 
@@ -51,7 +52,7 @@ func (m *Macaroon) fieldNum(p packet) field {
 	if p.totalLen == 0 {
 		return fieldInvalid
 	}
-	return field(m.data[p.start+4])
+	return field(m.data[p.start+2])
 }
 
 // parsePacket parses the packet starting at the given
@@ -61,14 +62,11 @@ func (m *Macaroon) parsePacket(start int) (packet, error) {
 	if len(data) < 6 {
 		return packet{}, fmt.Errorf("packet too short")
 	}
-	plen, ok := parseSize(data)
-	if !ok {
-		return packet{}, fmt.Errorf("cannot parse size")
-	}
+	plen := parseSize(data)
 	if plen > len(data) {
 		return packet{}, fmt.Errorf("packet size too big")
 	}
-	data = data[4:plen]
+	data = data[2:plen]
 	i := bytes.IndexByte(data, ' ')
 	if i <= 0 {
 		return packet{}, fmt.Errorf("cannot parse field name")
@@ -76,7 +74,7 @@ func (m *Macaroon) parsePacket(start int) (packet, error) {
 	return packet{
 		start:     int32(start),
 		totalLen:  uint16(plen),
-		headerLen: uint16(4 + i + 1),
+		headerLen: uint16(2 + i + 1),
 	}, nil
 }
 
@@ -97,14 +95,14 @@ func (m *Macaroon) appendPacket(f field, data []byte) (packet, bool) {
 
 // rawAppendPacket appends a packet to the given byte slice.
 func rawAppendPacket(buf []byte, f field, data []byte) ([]byte, packet, bool) {
-	plen := 4 + 1 + 1 + len(data)
+	plen := 2 + 1 + 1 + len(data)
 	if plen > maxPacketLen {
 		return nil, packet{}, false
 	}
 	s := packet{
 		start:     int32(len(buf)),
 		totalLen:  uint16(plen),
-		headerLen: uint16(4 + 1 + 1),
+		headerLen: uint16(2 + 1 + 1),
 	}
 	buf = appendSize(buf, plen)
 	buf = append(buf, byte(f))
@@ -113,31 +111,12 @@ func rawAppendPacket(buf []byte, f field, data []byte) ([]byte, packet, bool) {
 	return buf, s, true
 }
 
-var hexDigits = []byte("0123456789abcdef")
-
 func appendSize(data []byte, size int) []byte {
-	return append(data,
-		hexDigits[size>>12],
-		hexDigits[(size>>8)&0xf],
-		hexDigits[(size>>4)&0xf],
-		hexDigits[size&0xf],
-	)
+	var buf [2]byte
+	binary.LittleEndian.PutUint16(buf[:], uint16(size))
+	return append(data, buf[:]...)
 }
 
-func parseSize(data []byte) (int, bool) {
-	d0, ok0 := asciiHex(data[0])
-	d1, ok1 := asciiHex(data[1])
-	d2, ok2 := asciiHex(data[2])
-	d3, ok3 := asciiHex(data[3])
-	return d0<<12 + d1<<8 + d2<<4 + d3, ok0 && ok1 && ok2 && ok3
-}
-
-func asciiHex(b byte) (int, bool) {
-	switch {
-	case b >= '0' && b <= '9':
-		return int(b) - '0', true
-	case b >= 'a' && b <= 'f':
-		return int(b) - 'a' + 0xa, true
-	}
-	return 0, false
+func parseSize(data []byte) int {
+	return int(binary.LittleEndian.Uint16(data))
 }
