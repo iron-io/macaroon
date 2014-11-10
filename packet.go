@@ -1,7 +1,6 @@
 package macaroon
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 )
@@ -67,14 +66,10 @@ func (m *Macaroon) parsePacket(start int) (packet, error) {
 		return packet{}, fmt.Errorf("packet size too big")
 	}
 	data = data[2:plen]
-	i := bytes.IndexByte(data, ' ')
-	if i <= 0 {
-		return packet{}, fmt.Errorf("cannot parse field name")
-	}
 	return packet{
 		start:     int32(start),
 		totalLen:  uint16(plen),
-		headerLen: uint16(2 + i + 1),
+		headerLen: 2 + 1,
 	}, nil
 }
 
@@ -95,18 +90,17 @@ func (m *Macaroon) appendPacket(f field, data []byte) (packet, bool) {
 
 // rawAppendPacket appends a packet to the given byte slice.
 func rawAppendPacket(buf []byte, f field, data []byte) ([]byte, packet, bool) {
-	plen := 2 + 1 + 1 + len(data)
+	plen := 2 + 1 + len(data)
 	if plen > maxPacketLen {
 		return nil, packet{}, false
 	}
 	s := packet{
 		start:     int32(len(buf)),
 		totalLen:  uint16(plen),
-		headerLen: uint16(2 + 1 + 1),
+		headerLen: 2 + 1,
 	}
 	buf = appendSize(buf, plen)
 	buf = append(buf, byte(f))
-	buf = append(buf, ' ')
 	buf = append(buf, data...)
 	return buf, s, true
 }

@@ -14,7 +14,7 @@ import (
 
 func TestMacaroonLength(t *testing.T) {
 	m, _ := macaroon.New([]byte("secret"), "some id", "a location")
-	const expectedLength = 49
+	const expectedLength = 46
 	buf, _ := m.MarshalBinary()
 	if n := len(buf); n != expectedLength {
 		t.Errorf("expected length %v; got %v\n", expectedLength, n)
