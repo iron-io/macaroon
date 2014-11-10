@@ -32,9 +32,14 @@ func (p packet) len() int {
 	return int(p.totalLen)
 }
 
+const headerLen = 3
+
 // dataBytes returns the data payload of the packet.
 func (m *Macaroon) dataBytes(p packet) []byte {
-	return m.data[p.start+int32(p.headerLen) : p.start+int32(p.totalLen)]
+	if p.totalLen == 0 {
+		return nil
+	}
+	return m.data[p.start+headerLen : p.start+int32(p.totalLen)]
 }
 
 func (m *Macaroon) dataStr(p packet) string {
@@ -69,7 +74,6 @@ func (m *Macaroon) parsePacket(start int) (packet, error) {
 	return packet{
 		start:     int32(start),
 		totalLen:  uint16(plen),
-		headerLen: 2 + 1,
 	}, nil
 }
 
@@ -97,7 +101,6 @@ func rawAppendPacket(buf []byte, f field, data []byte) ([]byte, packet, bool) {
 	s := packet{
 		start:     int32(len(buf)),
 		totalLen:  uint16(plen),
-		headerLen: 2 + 1,
 	}
 	buf = appendSize(buf, plen)
 	buf = append(buf, byte(f))
