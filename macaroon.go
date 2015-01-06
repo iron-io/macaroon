@@ -2,6 +2,9 @@
 // the paper "Macaroons: Cookies with Contextual Caveats for
 // Decentralized Authorization in the Cloud"
 // (http://theory.stanford.edu/~ataly/Papers/macaroons.pdf)
+//
+// See the macaroon bakery packages at http://godoc.org/gopkg.in/macaroon-bakery.v0
+// for higher level services and operations that use macaroons.
 package macaroon
 
 import (
@@ -151,10 +154,10 @@ func (m *Macaroon) addCaveat(caveatId string, verificationId []byte, loc string)
 }
 
 // Bind prepares the macaroon for being used to discharge the
-// macaroon with the given rootSig. This must be
+// macaroon with the given signature sig. This must be
 // used before it is used in the discharges argument to Verify.
-func (m *Macaroon) Bind(rootSig []byte) {
-	m.sig = bindForRequest(rootSig, m.sig)
+func (m *Macaroon) Bind(sig []byte) {
+	m.sig = bindForRequest(sig, m.sig)
 }
 
 // AddFirstPartyCaveat adds a caveat that will be verified
@@ -201,20 +204,30 @@ func bindForRequest(rootSig, dischargeSig []byte) []byte {
 //
 // The discharge macaroons should be provided in discharges.
 //
-// Verify returns true if the verification succeeds; if returns
-// (false, nil) if the verification fails, and (false, err) if
-// the verification cannot be asserted (but may not be false).
-//
-// TODO(rog) is there a possible DOS attack that can cause this
-// function to infinitely recurse?
+// Verify returns nil if the verification succeeds.
 func (m *Macaroon) Verify(rootKey []byte, check func(caveat string) error, discharges []*Macaroon) error {
 	// TODO(rog) consider distinguishing between classes of
 	// check error - some errors may be resolved by minting
 	// a new macaroon; others may not.
-	return m.verify(m.sig, rootKey, check, discharges)
+	used := make([]int, len(discharges))
+	if err := m.verify(m.sig, rootKey, check, discharges, used); err != nil {
+		return err
+	}
+	for i, dm := range discharges {
+		switch used[i] {
+		case 0:
+			return fmt.Errorf("discharge macaroon %q was not used", dm.Id())
+		case 1:
+			continue
+		default:
+			// Should be impossible because of check in verify, but be defensive.
+			return fmt.Errorf("discharge macaroon %q was used more than once", dm.Id())
+		}
+	}
+	return nil
 }
 
-func (m *Macaroon) verify(rootSig []byte, rootKey []byte, check func(caveat string) error, discharges []*Macaroon) error {
+func (m *Macaroon) verify(rootSig []byte, rootKey []byte, check func(caveat string) error, discharges []*Macaroon, used []int) error {
 	if len(rootSig) == 0 {
 		rootSig = m.sig
 	}
@@ -229,23 +242,25 @@ func (m *Macaroon) verify(rootSig []byte, rootKey []byte, check func(caveat stri
 			// possible discharge macaroon verifications
 			// if there's more than one discharge macaroon
 			// with the required id.
-			var verifyErr error
 			found := false
-			for _, dm := range discharges {
+			for di, dm := range discharges {
 				if !bytes.Equal(dm.dataBytes(dm.id), m.dataBytes(cav.caveatId)) {
 					continue
 				}
 				found = true
-				verifyErr = dm.verify(rootSig, cavKey, check, discharges)
-				if verifyErr == nil {
-					break
+
+				// It's important that we do this before calling verify,
+				// as it prevents potentially infinite recursion.
+				if used[di]++; used[di] > 1 {
+					return fmt.Errorf("discharge macaroon %q was used more than once", dm.Id())
 				}
+				if err := dm.verify(rootSig, cavKey, check, discharges, used); err != nil {
+					return err
+				}
+				break
 			}
 			if !found {
 				return fmt.Errorf("cannot find discharge macaroon for caveat %q", m.dataBytes(cav.caveatId))
-			}
-			if verifyErr != nil {
-				return verifyErr
 			}
 		} else {
 			if err := check(string(m.dataBytes(cav.caveatId))); err != nil {

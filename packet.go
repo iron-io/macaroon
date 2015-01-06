@@ -108,6 +108,8 @@ func rawAppendPacket(buf []byte, f field, data []byte) ([]byte, packet, bool) {
 	return buf, s, true
 }
 
+var hexDigits = []byte("0123456789abcdef")
+
 func appendSize(data []byte, size int) []byte {
 	var buf [2]byte
 	binary.LittleEndian.PutUint16(buf[:], uint16(size))
