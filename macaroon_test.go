@@ -2,7 +2,6 @@ package macaroon_test
 
 import (
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -10,8 +9,17 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"gopkg.in/macaroon.v1"
+	"github.com/iron-io/macaroon"
 )
+
+func TestMacaroonLength(t *testing.T) {
+	m, _ := macaroon.New([]byte("secret"), "", "")
+	const expectedLength = 29
+	buf, _ := m.MarshalBinary()
+	if n := len(buf); n != expectedLength {
+		t.Errorf("expected length %v; got %v\n", expectedLength, n)
+	}
+}
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -600,21 +608,6 @@ func (*macaroonSuite) TestBinaryRoundTrip(c *gc.C) {
 	err = m1.UnmarshalBinary(data)
 	c.Assert(err, gc.IsNil)
 	assertEqualMacaroons(c, m0, &m1)
-}
-
-func (*macaroonSuite) TestBinaryMarshalingAgainstLibmacaroon(c *gc.C) {
-	// Test that a libmacaroon marshalled macaroon can be correctly unmarshaled
-	data, err := base64.StdEncoding.DecodeString(
-		"MDAxN2xvY2F0aW9uIHNvbWV3aGVyZQowMDEyaWRlbnRpZmllciBpZAowMDEzY2lkIGlkZW50aWZpZXIKMDA1MXZpZCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC4i9QwCgbL/wZGFvLQpsyhLOv0v6VjIo2KJv5miz+7krqCpt5EhmrL8pYO9xrhT80KMDAxM2NsIHRoaXJkIHBhcnR5CjAwMmZzaWduYXR1cmUg3BXkIDX0giAPPrgkDLbiMGYy/zsC2qPb4jU4G/dohkAK")
-	c.Assert(err, gc.IsNil)
-	var m0 macaroon.Macaroon
-	err = m0.UnmarshalBinary(data)
-	c.Assert(err, gc.IsNil)
-	jsonData := []byte(`{"caveats":[{"cid":"identifier\n","vid":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAuIvUMAoGy/8GRhby0KbMoSzr9L+lYyKNiib+Zos/u5K6gqbeRIZqy/KWDvca4U/NCg==","cl":"third party\n"}],"location":"somewhere\n","identifier":"id\n","signature":"dc15e42035f482200f3eb8240cb6e2306632ff3b02daa3dbe235381bf76886400a"}`)
-	var m1 macaroon.Macaroon
-	err = m1.UnmarshalJSON(jsonData)
-	c.Assert(err, gc.IsNil)
-	assertEqualMacaroons(c, &m0, &m1)
 }
 
 func (*macaroonSuite) TestMacaroonFieldsTooBig(c *gc.C) {

@@ -2,6 +2,7 @@ package macaroon
 
 import (
 	"crypto/hmac"
+	"crypto/sha1"
 	"crypto/sha256"
 	"fmt"
 	"hash"
@@ -17,7 +18,7 @@ func keyedHash(key, text []byte) []byte {
 }
 
 func keyedHasher(key []byte) hash.Hash {
-	return hmac.New(sha256.New, key)
+	return hmac.New(sha1.New, key)
 }
 
 func makeKey(key []byte) *[keyLen]byte {

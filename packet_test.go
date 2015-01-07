@@ -1,6 +1,6 @@
 package macaroon
 
-import (
+/*import (
 	"strconv"
 	"strings"
 	"unicode"
@@ -164,4 +164,4 @@ func (*packetSuite) TestAsciiHex(c *gc.C) {
 			c.Assert(value, gc.Equals, int(n))
 		}
 	}
-}
+}*/
