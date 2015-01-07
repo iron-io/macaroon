@@ -94,7 +94,7 @@ func (m *Macaroon) appendPacket(f field, data []byte) (packet, bool) {
 
 // rawAppendPacket appends a packet to the given byte slice.
 func rawAppendPacket(buf []byte, f field, data []byte) ([]byte, packet, bool) {
-	plen := 2 + 1 + len(data)
+	plen := packetSize(data)
 	if plen > maxPacketLen {
 		return nil, packet{}, false
 	}
@@ -106,6 +106,11 @@ func rawAppendPacket(buf []byte, f field, data []byte) ([]byte, packet, bool) {
 	buf = append(buf, byte(f))
 	buf = append(buf, data...)
 	return buf, s, true
+}
+
+func packetSize(data []byte) int {
+	// 2 - ?, 1 - field size
+	return 2 + 1 + len(data)
 }
 
 var hexDigits = []byte("0123456789abcdef")

@@ -3,7 +3,7 @@ package macaroon_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"gopkg.in/macaroon.v1"
+	"github.com/iron-io/macaroon"
 )
 
 type marshalSuite struct{}

@@ -9,12 +9,12 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"gopkg.in/macaroon.v1"
+	"github.com/iron-io/macaroon"
 )
 
 func TestMacaroonLength(t *testing.T) {
 	m, _ := macaroon.New([]byte("secret"), "", "")
-	const expectedLength = 46
+	const expectedLength = 29
 	buf, _ := m.MarshalBinary()
 	if n := len(buf); n != expectedLength {
 		t.Errorf("expected length %v; got %v\n", expectedLength, n)

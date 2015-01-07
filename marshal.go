@@ -200,7 +200,7 @@ func (m *Macaroon) appendBinary(data []byte) ([]byte, error) {
 }
 
 func (m *Macaroon) marshalBinaryLen() int {
-	return len(m.data) + packetSize(fieldSignature, m.sig)
+	return len(m.data) + packetSize(m.sig)
 }
 
 // Slice defines a collection of macaroons. By convention, the

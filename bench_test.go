@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"testing"
 
-	"gopkg.in/macaroon.v1"
+	"github.com/iron-io/macaroon"
 )
 
 func randomBytes(n int) []byte {
