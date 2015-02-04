@@ -55,8 +55,8 @@ type caveatJSON struct {
 // MarshalJSON implements json.Marshaler.
 func (m *Macaroon) MarshalJSON() ([]byte, error) {
 	mjson := macaroonJSON{
-		Location:   m.Location(),
-		Identifier: m.dataStr(m.id),
+		Location:   hex.EncodeToString(m.Location()),
+		Identifier: hex.EncodeToString(m.dataBytes(m.id)),
 		Signature:  hex.EncodeToString(m.sig),
 		Caveats:    make([]caveatJSON, len(m.caveats)),
 	}
@@ -81,7 +81,15 @@ func (m *Macaroon) UnmarshalJSON(jsonData []byte) error {
 	if err != nil {
 		return fmt.Errorf("cannot unmarshal json data: %v", err)
 	}
-	if err := m.init(mjson.Identifier, mjson.Location); err != nil {
+	id, err := hex.DecodeString(mjson.Identifier)
+	if err != nil {
+		return fmt.Errorf("cannot decode macaroon Identifier %q: %v", mjson.Identifier, err)
+	}
+	loc, err := hex.DecodeString(mjson.Location)
+	if err != nil {
+		return fmt.Errorf("cannot decode macaroon Location %q: %v", mjson.Location, err)
+	}
+	if err := m.init(id, loc); err != nil {
 		return err
 	}
 	m.sig, err = hex.DecodeString(mjson.Signature)

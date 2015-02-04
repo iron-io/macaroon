@@ -52,7 +52,7 @@ func (cav *caveat) isThirdParty() bool {
 
 // New returns a new macaroon with the given root key,
 // identifier and location.
-func New(rootKey []byte, id, loc string) (*Macaroon, error) {
+func New(rootKey, id, loc []byte) (*Macaroon, error) {
 	var m Macaroon
 	if err := m.init(id, loc); err != nil {
 		return nil, err
@@ -61,13 +61,13 @@ func New(rootKey []byte, id, loc string) (*Macaroon, error) {
 	return &m, nil
 }
 
-func (m *Macaroon) init(id, loc string) error {
+func (m *Macaroon) init(id, loc []byte) error {
 	var ok bool
-	m.location, ok = m.appendPacket(fieldLocation, []byte(loc))
+	m.location, ok = m.appendPacket(fieldLocation, loc)
 	if !ok {
 		return fmt.Errorf("macaroon location too big")
 	}
-	m.id, ok = m.appendPacket(fieldIdentifier, []byte(id))
+	m.id, ok = m.appendPacket(fieldIdentifier, id)
 	if !ok {
 		return fmt.Errorf("macaroon identifier too big")
 	}
@@ -87,14 +87,14 @@ func (m *Macaroon) Clone() *Macaroon {
 
 // Location returns the macaroon's location hint. This is
 // not verified as part of the macaroon.
-func (m *Macaroon) Location() string {
-	return m.dataStr(m.location)
+func (m *Macaroon) Location() []byte {
+	return m.dataBytes(m.location)
 }
 
 // Id returns the id of the macaroon. This can hold
 // arbitrary information.
-func (m *Macaroon) Id() string {
-	return m.dataStr(m.id)
+func (m *Macaroon) Id() []byte {
+	return m.dataBytes(m.id)
 }
 
 // Signature returns the macaroon's signature.
