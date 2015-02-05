@@ -1,6 +1,7 @@
 package macaroon_test
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -13,7 +14,7 @@ import (
 )
 
 func TestMacaroonLength(t *testing.T) {
-	m, _ := macaroon.New([]byte("secret"), "", "")
+	m, _ := macaroon.New([]byte("secret"), []byte(""), []byte(""))
 	const expectedLength = 29
 	buf, _ := m.MarshalBinary()
 	if n := len(buf); n != expectedLength {
@@ -35,9 +36,9 @@ func never(string) error {
 
 func (*macaroonSuite) TestNoCaveats(c *gc.C) {
 	rootKey := []byte("secret")
-	m := MustNew(rootKey, "some id", "a location")
-	c.Assert(m.Location(), gc.Equals, "a location")
-	c.Assert(m.Id(), gc.Equals, "some id")
+	m := MustNew(rootKey, []byte("some id"), []byte("a location"))
+	c.Assert(bytes.Compare(m.Location(), []byte("a location")), gc.Equals, 0)
+	c.Assert(bytes.Compare(m.Id(), []byte("some id")), gc.Equals, 0)
 
 	err := m.Verify(rootKey, never, nil)
 	c.Assert(err, gc.IsNil)
@@ -45,7 +46,7 @@ func (*macaroonSuite) TestNoCaveats(c *gc.C) {
 
 func (*macaroonSuite) TestFirstPartyCaveat(c *gc.C) {
 	rootKey := []byte("secret")
-	m := MustNew(rootKey, "some id", "a location")
+	m := MustNew(rootKey, []byte("some id"), []byte("a location"))
 
 	caveats := map[string]bool{
 		"a caveat":       true,
@@ -54,7 +55,7 @@ func (*macaroonSuite) TestFirstPartyCaveat(c *gc.C) {
 	tested := make(map[string]bool)
 
 	for cav := range caveats {
-		m.AddFirstPartyCaveat(cav)
+		m.AddFirstPartyCaveat([]byte(cav))
 	}
 	expectErr := fmt.Errorf("condition not met")
 	check := func(cav string) error {
@@ -69,7 +70,7 @@ func (*macaroonSuite) TestFirstPartyCaveat(c *gc.C) {
 
 	c.Assert(tested, gc.DeepEquals, caveats)
 
-	m.AddFirstPartyCaveat("not met")
+	m.AddFirstPartyCaveat([]byte("not met"))
 	err = m.Verify(rootKey, check, nil)
 	c.Assert(err, gc.Equals, expectErr)
 
@@ -78,14 +79,14 @@ func (*macaroonSuite) TestFirstPartyCaveat(c *gc.C) {
 
 func (*macaroonSuite) TestThirdPartyCaveat(c *gc.C) {
 	rootKey := []byte("secret")
-	m := MustNew(rootKey, "some id", "a location")
+	m := MustNew(rootKey, []byte("some id"), []byte("a location"))
 
 	dischargeRootKey := []byte("shared root key")
-	thirdPartyCaveatId := "3rd party caveat"
+	thirdPartyCaveatId := []byte("3rd party caveat")
 	err := m.AddThirdPartyCaveat(dischargeRootKey, thirdPartyCaveatId, "remote.com")
 	c.Assert(err, gc.IsNil)
 
-	dm := MustNew(dischargeRootKey, thirdPartyCaveatId, "remote location")
+	dm := MustNew(dischargeRootKey, thirdPartyCaveatId, []byte("remote location"))
 	dm.Bind(m.Signature())
 	err = m.Verify(rootKey, never, []*macaroon.Macaroon{dm})
 	c.Assert(err, gc.IsNil)
@@ -93,9 +94,9 @@ func (*macaroonSuite) TestThirdPartyCaveat(c *gc.C) {
 
 func (*macaroonSuite) TestThirdPartyCaveatBadRandom(c *gc.C) {
 	rootKey := []byte("secret")
-	m := MustNew(rootKey, "some id", "a location")
+	m := MustNew(rootKey, []byte("some id"), []byte("a location"))
 	dischargeRootKey := []byte("shared root key")
-	thirdPartyCaveatId := "3rd party caveat"
+	thirdPartyCaveatId := []byte("3rd party caveat")
 
 	err := macaroon.AddThirdPartyCaveatWithRand(m, dischargeRootKey, thirdPartyCaveatId, "remote.com", &macaroon.ErrorReader{})
 	c.Assert(err, gc.ErrorMatches, "cannot generate random bytes: fail")
@@ -495,15 +496,15 @@ func (*macaroonSuite) TestVerify(c *gc.C) {
 
 func (*macaroonSuite) TestMarshalJSON(c *gc.C) {
 	rootKey := []byte("secret")
-	m0 := MustNew(rootKey, "some id", "a location")
-	m0.AddFirstPartyCaveat("account = 3735928559")
+	m0 := MustNew(rootKey, []byte("some id"), []byte("a location"))
+	m0.AddFirstPartyCaveat([]byte("account = 3735928559"))
 	m0JSON, err := json.Marshal(m0)
 	c.Assert(err, gc.IsNil)
 	var m1 macaroon.Macaroon
 	err = json.Unmarshal(m0JSON, &m1)
 	c.Assert(err, gc.IsNil)
-	c.Assert(m0.Location(), gc.Equals, m1.Location())
-	c.Assert(m0.Id(), gc.Equals, m1.Id())
+	c.Assert(bytes.Compare(m0.Location(), m1.Location()), gc.Equals, 0)
+	c.Assert(bytes.Compare(m0.Id(), m1.Id()), gc.Equals, 0)
 	c.Assert(
 		hex.EncodeToString(m0.Signature()),
 		gc.Equals,
@@ -515,13 +516,13 @@ func (*macaroonSuite) TestJSONRoundTrip(c *gc.C) {
 	// example README, but with the signature tweaked to
 	// match our current behaviour.
 	// TODO fix that behaviour so that our signatures match.
-	jsonData := `{"caveats":[{"cid":"account = 3735928559"},{"cid":"this was how we remind auth of key\/pred","vid":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA027FAuBYhtHwJ58FX6UlVNFtFsGxQHS7uD\/w\/dedwv4Jjw7UorCREw5rXbRqIKhr","cl":"http:\/\/auth.mybank\/"}],"location":"http:\/\/mybank\/","identifier":"we used our other secret key","signature":"6e315b0b391e8c6cc6f8d88fc22933a13430fb289b2fb613cf70f746bbe7d27d"}`
+	jsonData := `{"caveats":[{"cid":"YWNjb3VudCA9IDM3MzU5Mjg1NTk="},{"cid":"dGhpcyB3YXMgaG93IHdlIHJlbWluZCBhdXRoIG9mIGtleS9wcmVk","vid":"8s3Jk17ClKmCLsv1mzMsUf0YV0J/Rku0MsD1u/snlzAT8wAQc0Dam64YsZKcUOtS1shrRXp0Jjc/FYev4kIkg3eGNKBq8FMkINAGwcA2BFHR8c7t2oc10wVksQLFeNHJ","cl":"http://auth.mybank/"}],"location":"687474703a2f2f6d7962616e6b2f","identifier":"77652075736564206f7572206f7468657220736563726574206b6579","signature":"5836a6270efd2f58410cc73e647936fb2f109f6e"}`
 
 	var m macaroon.Macaroon
 	err := json.Unmarshal([]byte(jsonData), &m)
 	c.Assert(err, gc.IsNil)
 	c.Assert(hex.EncodeToString(m.Signature()), gc.Equals,
-		"6e315b0b391e8c6cc6f8d88fc22933a13430fb289b2fb613cf70f746bbe7d27d")
+		"5836a6270efd2f58410cc73e647936fb2f109f6e")
 	data, err := m.MarshalJSON()
 	c.Assert(err, gc.IsNil)
 
@@ -558,15 +559,15 @@ func makeMacaroons(mspecs []macaroonSpec) (
 ) {
 	var macaroons []*macaroon.Macaroon
 	for _, mspec := range mspecs {
-		m := MustNew([]byte(mspec.rootKey), mspec.id, mspec.location)
+		m := MustNew([]byte(mspec.rootKey), []byte(mspec.id), []byte(mspec.location))
 		for _, cav := range mspec.caveats {
 			if cav.location != "" {
-				err := m.AddThirdPartyCaveat([]byte(cav.rootKey), cav.condition, cav.location)
+				err := m.AddThirdPartyCaveat([]byte(cav.rootKey), []byte(cav.condition), cav.location)
 				if err != nil {
 					panic(err)
 				}
 			} else {
-				m.AddFirstPartyCaveat(cav.condition)
+				m.AddFirstPartyCaveat([]byte(cav.condition))
 			}
 		}
 		macaroons = append(macaroons, m)
@@ -595,12 +596,12 @@ func (*macaroonSuite) TestBinaryRoundTrip(c *gc.C) {
 	// Test the binary marshalling and unmarshalling of a macaroon with
 	// first and third party caveats.
 	rootKey := []byte("secret")
-	m0 := MustNew(rootKey, "some id", "a location")
-	err := m0.AddFirstPartyCaveat("first caveat")
+	m0 := MustNew(rootKey, []byte("some id"), []byte("a location"))
+	err := m0.AddFirstPartyCaveat([]byte("first caveat"))
 	c.Assert(err, gc.IsNil)
-	err = m0.AddFirstPartyCaveat("second caveat")
+	err = m0.AddFirstPartyCaveat([]byte("second caveat"))
 	c.Assert(err, gc.IsNil)
-	err = m0.AddThirdPartyCaveat([]byte("shared root key"), "3rd party caveat", "remote.com")
+	err = m0.AddThirdPartyCaveat([]byte("shared root key"), []byte("3rd party caveat"), "remote.com")
 	c.Assert(err, gc.IsNil)
 	data, err := m0.MarshalBinary()
 	c.Assert(err, gc.IsNil)
@@ -615,16 +616,16 @@ func (*macaroonSuite) TestMacaroonFieldsTooBig(c *gc.C) {
 	toobig := make([]byte, macaroon.MaxPacketLen)
 	_, err := rand.Reader.Read(toobig)
 	c.Assert(err, gc.IsNil)
-	_, err = macaroon.New(rootKey, string(toobig), "a location")
+	_, err = macaroon.New(rootKey, toobig, []byte("a location"))
 	c.Assert(err, gc.ErrorMatches, "macaroon identifier too big")
-	_, err = macaroon.New(rootKey, "some id", string(toobig))
+	_, err = macaroon.New(rootKey, []byte("some id"), toobig)
 	c.Assert(err, gc.ErrorMatches, "macaroon location too big")
 
-	m0 := MustNew(rootKey, "some id", "a location")
-	err = m0.AddThirdPartyCaveat(toobig, "3rd party caveat", "remote.com")
+	m0 := MustNew(rootKey, []byte("some id"), []byte("a location"))
+	err = m0.AddThirdPartyCaveat(toobig, []byte("3rd party caveat"), "remote.com")
 	c.Assert(err, gc.ErrorMatches, "caveat verification id too big")
-	err = m0.AddThirdPartyCaveat([]byte("shared root key"), string(toobig), "remote.com")
+	err = m0.AddThirdPartyCaveat([]byte("shared root key"), toobig, "remote.com")
 	c.Assert(err, gc.ErrorMatches, "caveat identifier too big")
-	err = m0.AddThirdPartyCaveat([]byte("shared root key"), "3rd party caveat", string(toobig))
+	err = m0.AddThirdPartyCaveat([]byte("shared root key"), []byte("3rd party caveat"), string(toobig))
 	c.Assert(err, gc.ErrorMatches, "caveat location too big")
 }
