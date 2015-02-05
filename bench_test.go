@@ -2,7 +2,6 @@ package macaroon_test
 
 import (
 	"crypto/rand"
-	"encoding/base64"
 	"testing"
 
 	"github.com/iron-io/macaroon"
@@ -19,8 +18,8 @@ func randomBytes(n int) []byte {
 
 func BenchmarkNew(b *testing.B) {
 	rootKey := randomBytes(24)
-	id := base64.StdEncoding.EncodeToString(randomBytes(100))
-	loc := base64.StdEncoding.EncodeToString(randomBytes(40))
+	id := randomBytes(100)
+	loc := randomBytes(40)
 	b.ResetTimer()
 	for i := b.N - 1; i >= 0; i-- {
 		MustNew(rootKey, id, loc)
@@ -29,14 +28,14 @@ func BenchmarkNew(b *testing.B) {
 
 func BenchmarkAddCaveat(b *testing.B) {
 	rootKey := randomBytes(24)
-	id := base64.StdEncoding.EncodeToString(randomBytes(100))
-	loc := base64.StdEncoding.EncodeToString(randomBytes(40))
+	id := randomBytes(100)
+	loc := randomBytes(40)
 	b.ResetTimer()
 	for i := b.N - 1; i >= 0; i-- {
 		b.StopTimer()
 		m := MustNew(rootKey, id, loc)
 		b.StartTimer()
-		m.AddFirstPartyCaveat("some caveat stuff")
+		m.AddFirstPartyCaveat([]byte("some caveat stuff"))
 	}
 }
 
@@ -70,8 +69,8 @@ func BenchmarkVerifySmall(b *testing.B) {
 
 func BenchmarkMarshalJSON(b *testing.B) {
 	rootKey := randomBytes(24)
-	id := base64.StdEncoding.EncodeToString(randomBytes(100))
-	loc := base64.StdEncoding.EncodeToString(randomBytes(40))
+	id := randomBytes(100)
+	loc := randomBytes(40)
 	m := MustNew(rootKey, id, loc)
 	b.ResetTimer()
 	for i := b.N - 1; i >= 0; i-- {
@@ -82,7 +81,7 @@ func BenchmarkMarshalJSON(b *testing.B) {
 	}
 }
 
-func MustNew(rootKey []byte, id, loc string) *macaroon.Macaroon {
+func MustNew(rootKey, id, loc []byte) *macaroon.Macaroon {
 	m, err := macaroon.New(rootKey, id, loc)
 	if err != nil {
 		panic(err)
@@ -92,8 +91,8 @@ func MustNew(rootKey []byte, id, loc string) *macaroon.Macaroon {
 
 func BenchmarkUnmarshalJSON(b *testing.B) {
 	rootKey := randomBytes(24)
-	id := base64.StdEncoding.EncodeToString(randomBytes(100))
-	loc := base64.StdEncoding.EncodeToString(randomBytes(40))
+	id := randomBytes(100)
+	loc := randomBytes(40)
 	m := MustNew(rootKey, id, loc)
 	data, err := m.MarshalJSON()
 	if err != nil {

@@ -40,7 +40,7 @@ type caveat struct {
 }
 
 type Caveat struct {
-	Id       string
+	Id       []byte
 	Location string
 }
 
@@ -52,7 +52,7 @@ func (cav *caveat) isThirdParty() bool {
 
 // New returns a new macaroon with the given root key,
 // identifier and location.
-func New(rootKey []byte, id, loc string) (*Macaroon, error) {
+func New(rootKey, id, loc []byte) (*Macaroon, error) {
 	var m Macaroon
 	if err := m.init(id, loc); err != nil {
 		return nil, err
@@ -61,13 +61,13 @@ func New(rootKey []byte, id, loc string) (*Macaroon, error) {
 	return &m, nil
 }
 
-func (m *Macaroon) init(id, loc string) error {
+func (m *Macaroon) init(id, loc []byte) error {
 	var ok bool
-	m.location, ok = m.appendPacket(fieldLocation, []byte(loc))
+	m.location, ok = m.appendPacket(fieldLocation, loc)
 	if !ok {
 		return fmt.Errorf("macaroon location too big")
 	}
-	m.id, ok = m.appendPacket(fieldIdentifier, []byte(id))
+	m.id, ok = m.appendPacket(fieldIdentifier, id)
 	if !ok {
 		return fmt.Errorf("macaroon identifier too big")
 	}
@@ -87,14 +87,14 @@ func (m *Macaroon) Clone() *Macaroon {
 
 // Location returns the macaroon's location hint. This is
 // not verified as part of the macaroon.
-func (m *Macaroon) Location() string {
-	return m.dataStr(m.location)
+func (m *Macaroon) Location() []byte {
+	return m.dataBytes(m.location)
 }
 
 // Id returns the id of the macaroon. This can hold
 // arbitrary information.
-func (m *Macaroon) Id() string {
-	return m.dataStr(m.id)
+func (m *Macaroon) Id() []byte {
+	return m.dataBytes(m.id)
 }
 
 // Signature returns the macaroon's signature.
@@ -108,7 +108,7 @@ func (m *Macaroon) Caveats() []Caveat {
 	caveats := make([]Caveat, len(m.caveats))
 	for i, cav := range m.caveats {
 		caveats[i] = Caveat{
-			Id:       m.dataStr(cav.caveatId),
+			Id:       m.dataBytes(cav.caveatId),
 			Location: m.dataStr(cav.location),
 		}
 	}
@@ -116,11 +116,11 @@ func (m *Macaroon) Caveats() []Caveat {
 }
 
 // appendCaveat appends a caveat without modifying the macaroon's signature.
-func (m *Macaroon) appendCaveat(caveatId string, verificationId []byte, loc string) (*caveat, error) {
+func (m *Macaroon) appendCaveat(caveatId, verificationId []byte, loc string) (*caveat, error) {
 	var cav caveat
 	var ok bool
-	if caveatId != "" {
-		cav.caveatId, ok = m.appendPacket(fieldCaveatId, []byte(caveatId))
+	if len(caveatId) != 0 {
+		cav.caveatId, ok = m.appendPacket(fieldCaveatId, caveatId)
 		if !ok {
 			return nil, fmt.Errorf("caveat identifier too big")
 		}
@@ -141,7 +141,7 @@ func (m *Macaroon) appendCaveat(caveatId string, verificationId []byte, loc stri
 	return &m.caveats[len(m.caveats)-1], nil
 }
 
-func (m *Macaroon) addCaveat(caveatId string, verificationId []byte, loc string) error {
+func (m *Macaroon) addCaveat(caveatId, verificationId []byte, loc string) error {
 	cav, err := m.appendCaveat(caveatId, verificationId, loc)
 	if err != nil {
 		return err
@@ -162,7 +162,7 @@ func (m *Macaroon) Bind(sig []byte) {
 
 // AddFirstPartyCaveat adds a caveat that will be verified
 // by the target service.
-func (m *Macaroon) AddFirstPartyCaveat(caveatId string) error {
+func (m *Macaroon) AddFirstPartyCaveat(caveatId []byte) error {
 	return m.addCaveat(caveatId, nil, "")
 }
 
@@ -172,11 +172,11 @@ func (m *Macaroon) AddFirstPartyCaveat(caveatId string) error {
 // way, either by encrypting it with a key known to the third party
 // or by holding a reference to it stored in the third party's
 // storage.
-func (m *Macaroon) AddThirdPartyCaveat(rootKey []byte, caveatId string, loc string) error {
+func (m *Macaroon) AddThirdPartyCaveat(rootKey, caveatId []byte, loc string) error {
 	return m.addThirdPartyCaveatWithRand(rootKey, caveatId, loc, rand.Reader)
 }
 
-func (m *Macaroon) addThirdPartyCaveatWithRand(rootKey []byte, caveatId string, loc string, r io.Reader) error {
+func (m *Macaroon) addThirdPartyCaveatWithRand(rootKey, caveatId []byte, loc string, r io.Reader) error {
 	verificationId, err := encrypt(m.sig, rootKey, r)
 	if err != nil {
 		return err
