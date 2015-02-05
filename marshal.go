@@ -63,7 +63,7 @@ func (m *Macaroon) MarshalJSON() ([]byte, error) {
 	for i, cav := range m.caveats {
 		mjson.Caveats[i] = caveatJSON{
 			Location: m.dataStr(cav.location),
-			CID:      m.dataStr(cav.caveatId),
+			CID:      base64.StdEncoding.EncodeToString(m.dataBytes(cav.caveatId)),
 			VID:      base64.StdEncoding.EncodeToString(m.dataBytes(cav.verificationId)),
 		}
 	}
@@ -102,7 +102,11 @@ func (m *Macaroon) UnmarshalJSON(jsonData []byte) error {
 		if err != nil {
 			return fmt.Errorf("cannot decode verification id %q: %v", cav.VID, err)
 		}
-		if _, err := m.appendCaveat(cav.CID, vid, cav.Location); err != nil {
+		cid, err := base64.StdEncoding.DecodeString(cav.CID)
+		if err != nil {
+			return fmt.Errorf("cannot decode id %q: %v", cav.CID, err)
+		}
+		if _, err := m.appendCaveat(cid, vid, cav.Location); err != nil {
 			return err
 		}
 	}
